@@ -21,6 +21,16 @@ var ErrBadPattern = errors.New("syntax error in pattern")
 var defaultConfig = Config{'/', '*', '?', '[', ']', '^', true}
 
 // Default returns the Config used by the package-level default Globber.
+// The values are:
+//     Config{
+//             Separator: '/',
+//             Star:      '*',
+//             Quest:     '?',
+//             Range:     '[',
+//             RangeEnd:  ']',
+//             RangeNeg:  '^',
+//             GlobStar:  true,
+//     }
 func Default() Config {
 	return defaultConfig
 }
@@ -29,19 +39,41 @@ func Default() Config {
 // supported pattern control characters and Separator as well as enable
 // GlobStar behaviour.
 type Config struct {
-	Separator byte // Separator separates path elements. Default '/'
-	Star      byte // Star wildcard matching zero or more characters. Default '*'
-	Quest     byte // Quest wildcard matching one character. Default '?'
-	Range     byte // Range start matches ranges one character from a specified range. Default ']'
-	RangeEnd  byte // RangeEnd ends a Range. Ranges of characters can be specified with '-' e.g. [0-9]. Default ']'
-	RangeNeg  byte // RangeNeg negates the Range e.g. [^a-z]. Default '^'
-	GlobStar  bool // GlobStar enables multiple Stars to match across directory boundaries. Default true
+	Separator byte // Separator separates path element
+	Star      byte // Star wildcard matching zero or more characters
+	Quest     byte // Quest wildcard matching one character
+	Range     byte // Range start matches ranges one character from a specified range
+	RangeEnd  byte // RangeEnd ends a Range. Ranges of characters can be specified with '-' e.g. [0-9]
+	RangeNeg  byte // RangeNeg negates the Range e.g. [^a-z]
+	GlobStar  bool // GlobStar enables multiple Stars to match across directory boundaries
 }
+
+var defaultGlobber = func() *Globber {
+	g, err := New(defaultConfig)
+	if err != nil {
+		panic(err)
+	}
+	return g
+}()
 
 // mataRegexp returns a regexp matcher to detect pattern control characters.
 func (c Config) metaRegexp() (*regexp.Regexp, error) {
 	meta := regexp.QuoteMeta(string([]byte{c.Star, c.Quest, c.Range}))
 	return regexp.Compile(`(^|[^\\])[` + meta + `]`)
+}
+
+// GlobStrings returns all expanded paths from list matching pattern or nil if there are no matches.
+// This function calls the corresponding method of a Globber with default Config and is equivalent to:
+//     glob.New(glob.Default()).GlobStrings(list, pattern)
+func GlobStrings(list []string, pattern string) (matches []string, err error) {
+	return defaultGlobber.GlobStrings(list, pattern)
+}
+
+// Match returns true if name matches the shell file name pattern.
+// This function calls the corresponding method of a Globber with default Config and is equivalent to:
+//     glob.New(glob.Default()).Match(pattern, name)
+func Match(pattern, name string) (bool, error) {
+	return defaultGlobber.Match(pattern, name)
 }
 
 // Globber provides configurable globbing and matching algorithms.
@@ -60,8 +92,9 @@ func New(c Config) (*Globber, error) {
 }
 
 // GlobStrings returns all expanded paths from list matching pattern or nil if there are no matches.
-// The syntax of pattern is the same as in Match. The control characters  of the pattern and
+// The syntax of pattern is the same as in Match. The control characters of the pattern and
 // GlobStar matching behaviour can be configured in Config.
+// The given list must be sorted in ascending order. New matches are added in lexicographical order.
 func (g *Globber) GlobStrings(list []string, pattern string) (matches []string, err error) {
 	if len(list) == 0 {
 		return
@@ -110,23 +143,7 @@ func (g *Globber) split(path string) (dir, file string) {
 // The given list must be sorted in ascending order. New matches are added in lexicographical order.
 func (g *Globber) globStrings(list []string, dir, pattern string, matches []string) ([]string, error) {
 	m := matches
-	var matchtree bool
-	if g.config.GlobStar {
-	Loop:
-		for i := 0; i < len(pattern); i++ {
-			switch pattern[i] {
-			case g.config.Separator:
-				break Loop
-			case g.config.Star:
-				if i+1 < len(pattern) && pattern[i+1] == g.config.Star {
-					matchtree = true
-					break Loop
-				}
-			case '\\':
-				i++
-			}
-		}
-	}
+	matchtree := g.config.GlobStar && g.hasGlobStar(pattern)
 	paths := g.filepaths(list, dir, matchtree)
 	dirlen := len(dir)
 	if dir != "" {
@@ -142,6 +159,23 @@ func (g *Globber) globStrings(list []string, dir, pattern string, matches []stri
 		}
 	}
 	return m, nil
+}
+
+// hasGlobStar returns true if the pattern contains multiple Star wildcards in the first path segment.
+func (g *Globber) hasGlobStar(pattern string) bool {
+	for i := 0; i < len(pattern); i++ {
+		switch pattern[i] {
+		case g.config.Separator:
+			return false
+		case g.config.Star:
+			if i+1 < len(pattern) && pattern[i+1] == g.config.Star {
+				return true
+			}
+		case '\\':
+			i++
+		}
+	}
+	return false
 }
 
 // filepaths returns child paths of dir expanded from the given list.

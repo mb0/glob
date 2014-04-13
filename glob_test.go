@@ -8,7 +8,7 @@ package glob
 import "testing"
 
 func TestMetaRegexp(t *testing.T) {
-	expr, err := defaultConfig.metaRegexp()
+	expr, err := Default().metaRegexp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,10 +114,7 @@ func TestFilepaths(t *testing.T) {
 		{"a", []string{"a/b"}},
 		{"a/b", []string{"a/b/c"}},
 	}
-	g, err := New(Default())
-	if err != nil {
-		t.Fatal(err)
-	}
+	g := defaultGlobber
 	for _, test := range tests {
 		res := g.filepaths(list, test.pat, false)
 		if !equals(res, test.res) {
