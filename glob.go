@@ -287,7 +287,21 @@ Pattern:
 			}
 		}
 		if star > 1 && g.config.GlobStar {
-			println(name[i:])
+			// Look for match skipping i+1 bytes.
+			for i = 0; i < len(name); i++ {
+				t, ok, err := g.matchChunk(chunk, name[i+1:])
+				if ok {
+					// if we're the last chunk, make sure we exhausted the name
+					if len(pattern) == 0 && len(t) > 0 {
+						continue
+					}
+					name = t
+					continue Pattern
+				}
+				if err != nil {
+					return false, err
+				}
+			}
 		}
 		return false, nil
 	}

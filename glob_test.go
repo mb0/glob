@@ -54,6 +54,10 @@ func TestGlobStrings(t *testing.T) {
 		{"a.bar", []string{
 			"a.bar",
 		}},
+		{"*", []string{
+			"a",
+			"b",
+		}},
 		{"a.*", []string{
 			"a.b", "a.bar", "a.foo",
 		}},
@@ -119,6 +123,33 @@ func TestFilepaths(t *testing.T) {
 		res := g.filepaths(list, test.pat, false)
 		if !equals(res, test.res) {
 			t.Errorf("pattern %q got:\n%v ", test.pat, res)
+		}
+	}
+}
+
+func TestMatch(t *testing.T) {
+	g := defaultGlobber
+	match := []string{
+		`foo/bar/baz`,
+		`foo/*/baz`,
+		`**/baz`,
+		`**baz`,
+		`foo/**`,
+	}
+	fail := []string{
+		`foo`,
+		`foo/*`,
+		`*/baz`,
+	}
+	var str = "foo/bar/baz"
+	for _, pat := range match {
+		if m, err := g.Match(pat, str); !m {
+			t.Errorf("%s must match %v", pat, err)
+		}
+	}
+	for _, pat := range fail {
+		if m, err := g.Match(pat, str); m {
+			t.Errorf("%s must fail %v", pat, err)
 		}
 	}
 }
