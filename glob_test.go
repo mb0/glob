@@ -135,11 +135,18 @@ func TestMatch(t *testing.T) {
 		`**/baz`,
 		`**baz`,
 		`foo/**`,
+		`**z`,
+		`f**z`,
+		`?o**z`,
+		`?o**z`,
+		`**/*z`,
 	}
 	fail := []string{
 		`foo`,
 		`foo/*`,
 		`*/baz`,
+		`o**z`,
+		`**/*r`,
 	}
 	var str = "foo/bar/baz"
 	for _, pat := range match {

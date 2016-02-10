@@ -268,27 +268,34 @@ Pattern:
 			return false, err
 		}
 		var i int
-		if star > 0 {
-			// Look for match skipping i+1 bytes.
-			// Cannot skip Separator.
-			for i = 0; i < len(name) && name[i] != g.config.Separator; i++ {
+		switch {
+		case star > 1 && g.config.GlobStar:
+			// Look for match skipping i+1 bytes and recurse to try branches
+			for i = 0; i < len(name); i++ {
 				t, ok, err := g.matchChunk(chunk, name[i+1:])
 				if ok {
 					// if we're the last chunk, make sure we exhausted the name
 					if len(pattern) == 0 && len(t) > 0 {
 						continue
 					}
-					name = t
+					i, name = 0, t
+					if len(pattern) > 0 {
+						ok, _ = g.Match(pattern, name)
+						if ok {
+							return true, nil
+						}
+						continue
+					}
 					continue Pattern
 				}
 				if err != nil {
 					return false, err
 				}
 			}
-		}
-		if star > 1 && g.config.GlobStar {
+		case star > 0:
 			// Look for match skipping i+1 bytes.
-			for i = 0; i < len(name); i++ {
+			// Cannot skip Separator.
+			for i = 0; i < len(name) && name[i] != g.config.Separator; i++ {
 				t, ok, err := g.matchChunk(chunk, name[i+1:])
 				if ok {
 					// if we're the last chunk, make sure we exhausted the name
